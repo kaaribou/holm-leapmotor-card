@@ -4,6 +4,8 @@
 ![Version](https://img.shields.io/github/v/release/kaaribou/holm-leapmotor-card)
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.1%2B-03a9f4)
 
+🇫🇷 Français · [🇬🇧 English](README.en.md)
+
 **Votre Leapmotor dans Home Assistant : batterie, charge, climatisation, ouvrants, pneus, actions et position — avec la photo de votre voiture.**
 
 HOLM Leapmotor Card s'appuie sur l'add-on **[Leapmotor Mate](https://github.com/ProtossBlaster/leapmotor-mate)** (publication MQTT vers Home Assistant). Elle trouve toute seule les entités de votre voiture et les regroupe dans une carte à onglets, avec des animations quand la charge ou la climatisation sont en marche.
@@ -22,6 +24,11 @@ HOLM Leapmotor Card s'appuie sur l'add-on **[Leapmotor Mate](https://github.com/
 ![Aperçu, charge et climatisation](docs/images/onglets.png)
 
 ![Véhicule, actions et climatisation à l'arrêt](docs/images/vehicule-actions.png)
+
+
+### 🆕 Nouveautés de la 1.1.0
+
+- 🌍 **La carte parle 8 langues** : français, anglais, allemand, espagnol, italien, néerlandais, portugais et polonais, éditeur compris. Elle suit la langue de votre profil Home Assistant (anglais si votre langue n'est pas traduite) ; l'option `language` permet d'en imposer une.
 
 ---
 
@@ -64,6 +71,7 @@ Dans l'éditeur, champ **Photo** : choisissez une image de la médiathèque (vou
 
 | Option | Par défaut | Description |
 |---|---|---|
+| `language` | celle du profil | Langue de la carte : `fr`, `en`, `de`, `es`, `it`, `nl`, `pt`, `pl`. |
 | `name` | — | Nom affiché. |
 | `prefix` | automatique | Préfixe des entités Leapmotor Mate (ex. `leapmotor_mate_002242`). |
 | `image_media` / `image` | silhouette | Photo : média de la médiathèque, ou adresse d'image. |

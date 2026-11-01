@@ -2,18 +2,174 @@
  * Votre Leapmotor (via Leapmotor Mate) dans Home Assistant : batterie et charge, climatisation,
  * portes / vitres / pneus, actions à distance, position. Photo personnalisable. */
 (() => {
-  const VERSION = "1.0.0";
+  // ---- HOLM i18n : textes écrits en français, traduits à l'affichage (en, de, es, it, nl, pt, pl) ----
+  // Langue : option `language` de la carte, sinon celle du profil Home Assistant ; anglais si la langue n'est pas traduite.
+  const HOLM_LANGS = ["en", "de", "es", "it", "nl", "pt", "pl"];
+  const LANG_NAMES = { fr: "Français", en: "English", de: "Deutsch", es: "Español", it: "Italiano", nl: "Nederlands", pt: "Português", pl: "Polski" };
+  const LOCALES = { fr: "fr-FR", en: "en-GB", de: "de-DE", es: "es-ES", it: "it-IT", nl: "nl-NL", pt: "pt-PT", pl: "pl-PL" };
+  const I18N = {
+    "Automatique (profil)": ["Automatic (profile)", "Automatisch (Profil)", "Automático (perfil)", "Automatica (profilo)", "Automatisch (profiel)", "Automático (perfil)", "Automatycznie (profil)"],
+    "Langue": ["Language", "Sprache", "Idioma", "Lingua", "Taal", "Idioma", "Język"],
+    "Titre": ["Title", "Titel", "Título", "Titolo", "Titel", "Título", "Tytuł"],
+    "Titre (optionnel)": ["Title (optional)", "Titel (optional)", "Título (opcional)", "Titolo (facoltativo)", "Titel (optioneel)", "Título (opcional)", "Tytuł (opcjonalnie)"],
+    "Nom": ["Name", "Name", "Nombre", "Nome", "Naam", "Nome", "Nazwa"],
+    "Nom affiché": ["Display name", "Anzeigename", "Nombre mostrado", "Nome visualizzato", "Weergavenaam", "Nome apresentado", "Wyświetlana nazwa"],
+    "Icône": ["Icon", "Symbol", "Icono", "Icona", "Pictogram", "Ícone", "Ikona"],
+    "Couleur": ["Colour", "Farbe", "Color", "Colore", "Kleur", "Cor", "Kolor"],
+    "Couleurs": ["Colours", "Farben", "Colores", "Colori", "Kleuren", "Cores", "Kolory"],
+    "Entité": ["Entity", "Entität", "Entidad", "Entità", "Entiteit", "Entidade", "Encja"],
+    "Entités": ["Entities", "Entitäten", "Entidades", "Entità", "Entiteiten", "Entidades", "Encje"],
+    "Chargement…": ["Loading…", "Wird geladen…", "Cargando…", "Caricamento…", "Laden…", "A carregar…", "Ładowanie…"],
+    "Erreur": ["Error", "Fehler", "Error", "Errore", "Fout", "Erro", "Błąd"],
+    "Fermer": ["Close", "Schließen", "Cerrar", "Chiudi", "Sluiten", "Fechar", "Zamknij"],
+    "Annuler": ["Cancel", "Abbrechen", "Cancelar", "Annulla", "Annuleren", "Cancelar", "Anuluj"],
+    "Enregistrer": ["Save", "Speichern", "Guardar", "Salva", "Opslaan", "Guardar", "Zapisz"],
+    "Supprimer": ["Delete", "Löschen", "Eliminar", "Elimina", "Verwijderen", "Eliminar", "Usuń"],
+    "Ajouter": ["Add", "Hinzufügen", "Añadir", "Aggiungi", "Toevoegen", "Adicionar", "Dodaj"],
+    "Monter": ["Move up", "Nach oben", "Subir", "Sposta su", "Omhoog", "Mover para cima", "W górę"],
+    "Descendre": ["Move down", "Nach unten", "Bajar", "Sposta giù", "Omlaag", "Mover para baixo", "W dół"],
+    "Afficher le cadre de la carte": ["Show the card frame", "Kartenrahmen anzeigen", "Mostrar el marco de la tarjeta", "Mostra la cornice della scheda", "Kaartkader tonen", "Mostrar a moldura do cartão", "Pokaż ramkę karty"],
+    "Indisponible": ["Unavailable", "Nicht verfügbar", "No disponible", "Non disponibile", "Niet beschikbaar", "Indisponível", "Niedostępne"],
+    "Aujourd'hui": ["Today", "Heute", "Hoy", "Oggi", "Vandaag", "Hoje", "Dziś"],
+    "Hier": ["Yesterday", "Gestern", "Ayer", "Ieri", "Gisteren", "Ontem", "Wczoraj"],
+    "Demain": ["Tomorrow", "Morgen", "Mañana", "Domani", "Morgen", "Amanhã", "Jutro"],
+    "Batterie": ["Battery", "Batterie", "Batería", "Batteria", "Batterij", "Bateria", "Bateria"],
+    "Aucune donnée sur cette période.": ["No data for this period.", "Keine Daten für diesen Zeitraum.", "No hay datos en este periodo.", "Nessun dato per questo periodo.", "Geen gegevens voor deze periode.", "Sem dados neste período.", "Brak danych w tym okresie."],
+    "à l'instant": ["just now", "gerade eben", "ahora mismo", "proprio ora", "zojuist", "agora mesmo", "przed chwilą"],
+    "il y a {n} min": ["{n} min ago", "vor {n} Min.", "hace {n} min", "{n} min fa", "{n} min geleden", "há {n} min", "{n} min temu"],
+    "il y a {n} h": ["{n} h ago", "vor {n} Std.", "hace {n} h", "{n} h fa", "{n} u geleden", "há {n} h", "{n} godz. temu"],
+    "il y a {n} j": ["{n} d ago", "vor {n} T.", "hace {n} d", "{n} g fa", "{n} d geleden", "há {n} d", "{n} dni temu"],
+    "Garée": ["Parked", "Geparkt", "Aparcado", "Parcheggiata", "Geparkeerd", "Estacionado", "Zaparkowany"],
+    "En route": ["Driving", "Unterwegs", "En marcha", "In viaggio", "Onderweg", "Em andamento", "W drodze"],
+    "En charge": ["Charging", "Lädt", "Cargando", "In carica", "Laden", "A carregar", "Ładowanie"],
+    "Prête": ["Ready", "Bereit", "Listo", "Pronta", "Klaar", "Pronto", "Gotowy"],
+    "En veille": ["Asleep", "Im Ruhemodus", "En reposo", "In standby", "Slaapstand", "Em repouso", "Uśpiony"],
+    "Hors ligne": ["Offline", "Offline", "Sin conexión", "Offline", "Offline", "Offline", "Offline"],
+    "Aperçu": ["Overview", "Übersicht", "Resumen", "Panoramica", "Overzicht", "Visão geral", "Przegląd"],
+    "Charge": ["Charge", "Laden", "Carga", "Ricarica", "Laden", "Carga", "Ładowanie"],
+    "Climat": ["Climate", "Klima", "Clima", "Clima", "Klimaat", "Clima", "Klimat"],
+    "Véhicule": ["Vehicle", "Fahrzeug", "Vehículo", "Veicolo", "Voertuig", "Veículo", "Pojazd"],
+    "Actions": ["Actions", "Aktionen", "Acciones", "Azioni", "Acties", "Ações", "Akcje"],
+    "Aucune voiture Leapmotor Mate trouvée.": ["No Leapmotor Mate car found.", "Kein Leapmotor-Mate-Fahrzeug gefunden.", "No se ha encontrado ningún coche Leapmotor Mate.", "Nessuna auto Leapmotor Mate trovata.", "Geen Leapmotor Mate-auto gevonden.", "Nenhum carro Leapmotor Mate encontrado.", "Nie znaleziono auta Leapmotor Mate."],
+    "Activez « MQTT → Home Assistant » dans Leapmotor Mate, ou indiquez le préfixe des entités dans l'éditeur.": ["Enable “MQTT → Home Assistant” in Leapmotor Mate, or set the entity prefix in the editor.", "Aktivieren Sie „MQTT → Home Assistant“ in Leapmotor Mate oder geben Sie im Editor das Entitätspräfix an.", "Activa «MQTT → Home Assistant» en Leapmotor Mate o indica el prefijo de las entidades en el editor.", "Attiva «MQTT → Home Assistant» in Leapmotor Mate o indica il prefisso delle entità nell'editor.", "Schakel ‘MQTT → Home Assistant’ in Leapmotor Mate in, of geef het entiteitsvoorvoegsel op in de editor.", "Ative «MQTT → Home Assistant» no Leapmotor Mate ou indique o prefixo das entidades no editor.", "Włącz „MQTT → Home Assistant” w Leapmotor Mate lub podaj prefiks encji w edytorze."],
+    "Heures creuses": ["Off-peak hours", "Niedertarif", "Horas valle", "Fuori punta", "Daltarief", "Horas de vazio", "Poza szczytem"],
+    "Maintenant": ["Now", "Jetzt", "Ahora", "Ora", "Nu", "Agora", "Teraz"],
+    "Arrêt": ["Off", "Aus", "Apagado", "Spento", "Uit", "Desligado", "Wył."],
+    "HC": ["Off-peak", "NT", "Valle", "F. punta", "Dal", "Vazio", "Poza szczytem"],
+    "{x} km d'autonomie": ["{x} km range", "{x} km Reichweite", "{x} km de autonomía", "{x} km di autonomia", "{x} km bereik", "{x} km de autonomia", "{x} km zasięgu"],
+    "En charge · {p} kW": ["Charging · {p} kW", "Lädt · {p} kW", "Cargando · {p} kW", "In carica · {p} kW", "Laden · {p} kW", "A carregar · {p} kW", "Ładowanie · {p} kW"],
+    " · encore {t}": [" · {t} left", " · noch {t}", " · faltan {t}", " · ancora {t}", " · nog {t}", " · faltam {t}", " · jeszcze {t}"],
+    "Branchée": ["Plugged in", "Angeschlossen", "Enchufado", "Collegata", "Aangesloten", "Ligado", "Podłączony"],
+    " · borne en {m}": [" · charger: {m}", " · Wallbox: {m}", " · cargador: {m}", " · wallbox: {m}", " · laadpaal: {m}", " · carregador: {m}", " · ładowarka: {m}"],
+    "Débranchée": ["Unplugged", "Nicht angeschlossen", "Desenchufado", "Scollegata", "Niet aangesloten", "Desligado da tomada", "Odłączony"],
+    "Portes": ["Doors", "Türen", "Puertas", "Porte", "Deuren", "Portas", "Drzwi"],
+    "Verrouillées": ["Locked", "Verriegelt", "Bloqueadas", "Bloccate", "Vergrendeld", "Trancadas", "Zablokowane"],
+    "Ouvertes": ["Unlocked", "Entriegelt", "Desbloqueadas", "Sbloccate", "Ontgrendeld", "Destrancadas", "Odblokowane"],
+    "Ouvrants": ["Openings", "Öffnungen", "Aperturas", "Aperture", "Openingen", "Aberturas", "Otwory"],
+    "{n} ouvert": ["{n} open", "{n} offen", "{n} abierta", "{n} aperta", "{n} open", "{n} aberta", "{n} otwarte"],
+    "{n} ouverts": ["{n} open", "{n} offen", "{n} abiertas", "{n} aperte", "{n} open", "{n} abertas", "otwarte: {n}"],
+    "Fermés": ["Closed", "Geschlossen", "Cerradas", "Chiuse", "Dicht", "Fechadas", "Zamknięte"],
+    "En marche": ["On", "Ein", "En marcha", "In funzione", "Aan", "Ligado", "Włączony"],
+    "Intérieur": ["Inside", "Innen", "Interior", "Interno", "Binnen", "Interior", "Wnętrze"],
+    "Pneus": ["Tyres", "Reifen", "Neumáticos", "Pneumatici", "Banden", "Pneus", "Opony"],
+    "Pression basse": ["Low pressure", "Niedriger Druck", "Presión baja", "Pressione bassa", "Lage druk", "Pressão baixa", "Niskie ciśnienie"],
+    "Verrouillée": ["Locked", "Verriegelt", "Bloqueado", "Bloccata", "Vergrendeld", "Trancado", "Zablokowany"],
+    "Déverrouillée": ["Unlocked", "Entriegelt", "Desbloqueado", "Sbloccata", "Ontgrendeld", "Destrancado", "Odblokowany"],
+    "Ouvert": ["Open", "Offen", "Abierto", "Aperto", "Open", "Aberto", "Otwarte"],
+    "Données {x}": ["Data {x}", "Daten {x}", "Datos {x}", "Dati {x}", "Gegevens {x}", "Dados {x}", "Dane {x}"],
+    "Autonomie {x}": ["Range {x}", "Reichweite {x}", "Autonomía {x}", "Autonomia {x}", "Bereik {x}", "Autonomia {x}", "Zasięg {x}"],
+    "Batterie {x}": ["Battery {x}", "Batterie {x}", "Batería {x}", "Batteria {x}", "Batterij {x}", "Bateria {x}", "Bateria {x}"],
+    "Limite de charge": ["Charge limit", "Ladelimit", "Límite de carga", "Limite di carica", "Laadlimiet", "Limite de carga", "Limit ładowania"],
+    "Borne": ["Charger", "Wallbox", "Cargador", "Wallbox", "Laadpaal", "Carregador", "Ładowarka"],
+    "Ventilation": ["Ventilation", "Lüftung", "Ventilación", "Ventilazione", "Ventilatie", "Ventilação", "Wentylacja"],
+    "Chauffage": ["Heating", "Heizung", "Calefacción", "Riscaldamento", "Verwarming", "Aquecimento", "Ogrzewanie"],
+    "Climatisation": ["Air conditioning", "Klimaanlage", "Aire acondicionado", "Climatizzazione", "Airco", "Ar condicionado", "Klimatyzacja"],
+    "Dégivrage": ["Defrost", "Enteisen", "Desempañado", "Sbrinamento", "Ontdooien", "Desembaciamento", "Odmrażanie"],
+    "Auto": ["Auto", "Auto", "Auto", "Auto", "Auto", "Auto", "Auto"],
+    "Toucher pour arrêter": ["Tap to stop", "Zum Stoppen tippen", "Toca para detener", "Tocca per fermare", "Tik om te stoppen", "Toque para parar", "Dotknij, aby zatrzymać"],
+    "Confirmer ?": ["Confirm?", "Bestätigen?", "¿Confirmar?", "Confermare?", "Bevestigen?", "Confirmar?", "Potwierdzić?"],
+    "Envoyé…": ["Sent…", "Gesendet…", "Enviado…", "Inviato…", "Verzonden…", "Enviado…", "Wysłano…"],
+    "{x} en marche": ["{x} on", "{x} läuft", "{x} en marcha", "{x} in funzione", "{x} aan", "{x} ligado", "{x} włączone"],
+    "Ventilation {n}": ["Fan {n}", "Lüftung {n}", "Ventilación {n}", "Ventilazione {n}", "Ventilatie {n}", "Ventilação {n}", "Wentylacja {n}"],
+    "consigne {t}": ["set to {t}", "Soll {t}", "consigna {t}", "impostata a {t}", "ingesteld op {t}", "definido para {t}", "nastawa {t}"],
+    "Arrêter": ["Stop", "Stoppen", "Detener", "Ferma", "Stoppen", "Parar", "Zatrzymaj"],
+    "Chauffe rapide": ["Quick heat", "Schnellheizen", "Calentar rápido", "Riscaldamento rapido", "Snel verwarmen", "Aquecimento rápido", "Szybkie grzanie"],
+    "Clim rapide": ["Quick cool", "Schnellkühlen", "Enfriar rápido", "Raffreddamento rapido", "Snel koelen", "Arrefecimento rápido", "Szybkie chłodzenie"],
+    "Siège conducteur": ["Driver seat", "Fahrersitz", "Asiento del conductor", "Sedile conducente", "Bestuurdersstoel", "Banco do condutor", "Fotel kierowcy"],
+    "Siège passager": ["Passenger seat", "Beifahrersitz", "Asiento del pasajero", "Sedile passeggero", "Passagiersstoel", "Banco do passageiro", "Fotel pasażera"],
+    "Volant": ["Steering wheel", "Lenkrad", "Volante", "Volante", "Stuur", "Volante", "Kierownica"],
+    "Rétroviseurs": ["Mirrors", "Spiegel", "Retrovisores", "Specchietti", "Spiegels", "Retrovisores", "Lusterka"],
+    "La voiture confirme les commandes en une minute environ.": ["The car confirms commands within about a minute.", "Das Auto bestätigt Befehle in etwa einer Minute.", "El coche confirma las órdenes en un minuto aproximadamente.", "L'auto conferma i comandi in circa un minuto.", "De auto bevestigt opdrachten binnen ongeveer een minuut.", "O carro confirma os comandos em cerca de um minuto.", "Auto potwierdza polecenia w około minutę."],
+    "Consigne": ["Set point", "Sollwert", "Consigna", "Temperatura impostata", "Instelpunt", "Temperatura definida", "Nastawa"],
+    "réglable dans Leapmotor Mate": ["adjustable in Leapmotor Mate", "in Leapmotor Mate einstellbar", "ajustable en Leapmotor Mate", "regolabile in Leapmotor Mate", "instelbaar in Leapmotor Mate", "ajustável no Leapmotor Mate", "regulowana w Leapmotor Mate"],
+    "Porte avant gauche": ["Front left door", "Tür vorne links", "Puerta delantera izquierda", "Porta anteriore sinistra", "Deur linksvoor", "Porta dianteira esquerda", "Drzwi przednie lewe"],
+    "Porte avant droite": ["Front right door", "Tür vorne rechts", "Puerta delantera derecha", "Porta anteriore destra", "Deur rechtsvoor", "Porta dianteira direita", "Drzwi przednie prawe"],
+    "Porte arrière gauche": ["Rear left door", "Tür hinten links", "Puerta trasera izquierda", "Porta posteriore sinistra", "Deur linksachter", "Porta traseira esquerda", "Drzwi tylne lewe"],
+    "Porte arrière droite": ["Rear right door", "Tür hinten rechts", "Puerta trasera derecha", "Porta posteriore destra", "Deur rechtsachter", "Porta traseira direita", "Drzwi tylne prawe"],
+    "Vitre avant gauche": ["Front left window", "Fenster vorne links", "Ventanilla delantera izquierda", "Finestrino anteriore sinistro", "Raam linksvoor", "Vidro dianteiro esquerdo", "Szyba przednia lewa"],
+    "Vitre avant droite": ["Front right window", "Fenster vorne rechts", "Ventanilla delantera derecha", "Finestrino anteriore destro", "Raam rechtsvoor", "Vidro dianteiro direito", "Szyba przednia prawa"],
+    "Vitre arrière gauche": ["Rear left window", "Fenster hinten links", "Ventanilla trasera izquierda", "Finestrino posteriore sinistro", "Raam linksachter", "Vidro traseiro esquerdo", "Szyba tylna lewa"],
+    "Vitre arrière droite": ["Rear right window", "Fenster hinten rechts", "Ventanilla trasera derecha", "Finestrino posteriore destro", "Raam rechtsachter", "Vidro traseiro direito", "Szyba tylna prawa"],
+    "Coffre": ["Boot", "Kofferraum", "Maletero", "Bagagliaio", "Kofferbak", "Bagageira", "Bagażnik"],
+    "Ouvrants et pneus": ["Openings and tyres", "Öffnungen und Reifen", "Aperturas y neumáticos", "Aperture e pneumatici", "Openingen en banden", "Aberturas e pneus", "Otwory i opony"],
+    "Tout est fermé": ["All closed", "Alles geschlossen", "Todo cerrado", "Tutto chiuso", "Alles dicht", "Tudo fechado", "Wszystko zamknięte"],
+    "Rideau de toit": ["Sunshade", "Sonnenrollo", "Cortinilla del techo", "Tendina del tetto", "Zonnescherm", "Cortina do teto", "Roleta dachowa"],
+    "ouvert {p} %": ["open {p}%", "offen {p} %", "abierta {p} %", "aperta {p}%", "open {p}%", "aberta {p}%", "otwarta {p}%"],
+    "fermé": ["closed", "geschlossen", "cerrada", "chiusa", "dicht", "fechada", "zamknięta"],
+    "pression basse": ["low pressure", "niedriger Druck", "presión baja", "pressione bassa", "lage druk", "pressão baixa", "niskie ciśnienie"],
+    "Rapport": ["Gear", "Gang", "Marcha", "Marcia", "Versnelling", "Mudança", "Bieg"],
+    "Déverrouiller": ["Unlock", "Entriegeln", "Desbloquear", "Sblocca", "Ontgrendelen", "Destrancar", "Odblokuj"],
+    "Verrouiller": ["Lock", "Verriegeln", "Bloquear", "Blocca", "Vergrendelen", "Trancar", "Zablokuj"],
+    "Ouvrir le coffre": ["Open the boot", "Kofferraum öffnen", "Abrir el maletero", "Apri il bagagliaio", "Kofferbak openen", "Abrir a bagageira", "Otwórz bagażnik"],
+    "Fermer le coffre": ["Close the boot", "Kofferraum schließen", "Cerrar el maletero", "Chiudi il bagagliaio", "Kofferbak sluiten", "Fechar a bagageira", "Zamknij bagażnik"],
+    "Ouvrir les vitres": ["Open the windows", "Fenster öffnen", "Abrir las ventanillas", "Apri i finestrini", "Ramen openen", "Abrir os vidros", "Otwórz szyby"],
+    "Fermer les vitres": ["Close the windows", "Fenster schließen", "Cerrar las ventanillas", "Chiudi i finestrini", "Ramen sluiten", "Fechar os vidros", "Zamknij szyby"],
+    "Ouvrir le rideau": ["Open the sunshade", "Rollo öffnen", "Abrir la cortinilla", "Apri la tendina", "Zonnescherm openen", "Abrir a cortina", "Otwórz roletę"],
+    "Fermer le rideau": ["Close the sunshade", "Rollo schließen", "Cerrar la cortinilla", "Chiudi la tendina", "Zonnescherm sluiten", "Fechar a cortina", "Zamknij roletę"],
+    "Klaxon / feux": ["Horn / lights", "Hupe / Licht", "Claxon / luces", "Clacson / luci", "Toeter / lichten", "Buzina / luzes", "Klakson / światła"],
+    "Préchauffer la batterie": ["Precondition the battery", "Batterie vorwärmen", "Precalentar la batería", "Preriscalda la batteria", "Batterij voorverwarmen", "Pré-aquecer a bateria", "Podgrzej baterię"],
+    "Libérer le câble": ["Release the cable", "Kabel freigeben", "Liberar el cable", "Sblocca il cavo", "Kabel ontgrendelen", "Libertar o cabo", "Odblokuj kabel"],
+    "À la maison": ["At home", "Zu Hause", "En casa", "A casa", "Thuis", "Em casa", "W domu"],
+    "En déplacement": ["Away", "Unterwegs", "Fuera", "Fuori casa", "Onderweg", "Fora", "Poza domem"],
+    "Photo": ["Photo", "Foto", "Foto", "Foto", "Foto", "Foto", "Zdjęcie"],
+    "Affichage": ["Display", "Anzeige", "Visualización", "Visualizzazione", "Weergave", "Apresentação", "Wyświetlanie"],
+    "Préfixe des entités (automatique si vide)": ["Entity prefix (automatic if empty)", "Entitätspräfix (automatisch wenn leer)", "Prefijo de las entidades (automático si está vacío)", "Prefisso delle entità (automatico se vuoto)", "Entiteitsvoorvoegsel (automatisch indien leeg)", "Prefixo das entidades (automático se vazio)", "Prefiks encji (automatycznie, jeśli puste)"],
+    "Photo (médiathèque : vous pouvez y téléverser une image)": ["Photo (media library: you can upload an image there)", "Foto (Medienbibliothek: Sie können dort ein Bild hochladen)", "Foto (mediateca: puedes subir una imagen)", "Foto (libreria multimediale: puoi caricarci un'immagine)", "Foto (mediabibliotheek: je kunt er een afbeelding uploaden)", "Foto (biblioteca multimédia: pode carregar uma imagem)", "Zdjęcie (biblioteka multimediów: możesz przesłać obraz)"],
+    "… ou adresse d'une image (ex. /local/voiture.jpg)": ["… or an image address (e.g. /local/car.jpg)", "… oder Bildadresse (z. B. /local/auto.jpg)", "… o dirección de una imagen (p. ej. /local/coche.jpg)", "… o indirizzo di un'immagine (es. /local/auto.jpg)", "… of adres van een afbeelding (bijv. /local/auto.jpg)", "… ou endereço de uma imagem (ex. /local/carro.jpg)", "… lub adres obrazu (np. /local/auto.jpg)"],
+    "Position, mini-carte et kilométrage": ["Location, mini map and mileage", "Standort, Minikarte und Kilometerstand", "Ubicación, minimapa y kilometraje", "Posizione, minimappa e chilometraggio", "Locatie, minikaart en kilometerstand", "Localização, minimapa e quilometragem", "Lokalizacja, minimapa i przebieg"],
+    "Commande de la borne (HOLM Lektrico)": ["Charger control (HOLM Lektrico)", "Wallbox-Steuerung (HOLM Lektrico)", "Control del cargador (HOLM Lektrico)", "Comando della wallbox (HOLM Lektrico)", "Bediening laadpaal (HOLM Lektrico)", "Comando do carregador (HOLM Lektrico)", "Sterowanie ładowarką (HOLM Lektrico)"],
+    "Confirmer les actions sensibles": ["Confirm sensitive actions", "Sensible Aktionen bestätigen", "Confirmar las acciones sensibles", "Conferma le azioni sensibili", "Gevoelige acties bevestigen", "Confirmar as ações sensíveis", "Potwierdzaj wrażliwe akcje"],
+    "Sélecteur de mode de la borne (automatique si vide)": ["Charger mode selector (automatic if empty)", "Modusauswahl der Wallbox (automatisch wenn leer)", "Selector de modo del cargador (automático si está vacío)", "Selettore di modalità della wallbox (automatico se vuoto)", "Moduskiezer van de laadpaal (automatisch indien leeg)", "Seletor de modo do carregador (automático se vazio)", "Wybór trybu ładowarki (automatycznie, jeśli puste)"],
+    "Onglet affiché à l'ouverture": ["Tab shown on opening", "Beim Öffnen angezeigter Reiter", "Pestaña mostrada al abrir", "Scheda mostrata all'apertura", "Tabblad bij openen", "Separador mostrado ao abrir", "Karta pokazywana po otwarciu"],
+    "Zoom de la mini-carte": ["Mini map zoom", "Zoom der Minikarte", "Zoom del minimapa", "Zoom della minimappa", "Zoom van de minikaart", "Zoom do minimapa", "Powiększenie minimapy"],
+    "Couleur d'accent": ["Accent colour", "Akzentfarbe", "Color de acento", "Colore d'accento", "Accentkleur", "Cor de destaque", "Kolor akcentu"],
+    "Alerte pression des pneus en dessous de": ["Tyre pressure alert below", "Reifendruckwarnung unter", "Alerta de presión de neumáticos por debajo de", "Avviso pressione pneumatici sotto", "Bandenspanningswaarschuwing onder", "Alerta de pressão dos pneus abaixo de", "Alert ciśnienia opon poniżej"],
+    "HOLM Leapmotor": ["HOLM Leapmotor", "HOLM Leapmotor", "HOLM Leapmotor", "HOLM Leapmotor", "HOLM Leapmotor", "HOLM Leapmotor", "HOLM Leapmotor"],
+    "Votre Leapmotor via Leapmotor Mate : batterie, charge, climatisation, ouvrants, pneus, actions et position, avec votre photo.": ["Your Leapmotor via Leapmotor Mate: battery, charging, air conditioning, openings, tyres, actions and location, with your photo.", "Ihr Leapmotor über Leapmotor Mate: Batterie, Laden, Klimaanlage, Öffnungen, Reifen, Aktionen und Standort, mit Ihrem Foto.", "Tu Leapmotor vía Leapmotor Mate: batería, carga, climatización, aperturas, neumáticos, acciones y ubicación, con tu foto.", "La tua Leapmotor tramite Leapmotor Mate: batteria, ricarica, clima, aperture, pneumatici, azioni e posizione, con la tua foto.", "Je Leapmotor via Leapmotor Mate: batterij, laden, airco, openingen, banden, acties en locatie, met je foto.", "O seu Leapmotor via Leapmotor Mate: bateria, carga, climatização, aberturas, pneus, ações e localização, com a sua foto.", "Twój Leapmotor przez Leapmotor Mate: bateria, ładowanie, klimatyzacja, otwory, opony, akcje i lokalizacja, z Twoim zdjęciem."]
+  };
+  let LANG = "fr", NUMLOC = "fr-FR";
+  const langOf = (hass, c) => { const l = String((c && c.language) || (hass && ((hass.locale && hass.locale.language) || hass.language)) || navigator.language || "en").toLowerCase().split(/[-_]/)[0]; return l === "fr" || HOLM_LANGS.includes(l) ? l : "en"; };
+  const setLang = (hass, c) => { LANG = langOf(hass, c); const p = hass && hass.locale && hass.locale.language; NUMLOC = !(c && c.language) && p && p.toLowerCase().startsWith(LANG) ? p : LOCALES[LANG]; return LANG; };
+  const _ = (s, v) => { let o = LANG === "fr" ? s : ((I18N[s] && I18N[s][HOLM_LANGS.indexOf(LANG)]) || s); if (v) for (const k in v) o = o.split("{" + k + "}").join(v[k]); return o; };
+  // champ « Langue » pour les éditeurs visuels (ha-form)
+  const langField = () => ({ name: "language", selector: { select: { mode: "dropdown", options: [{ value: "", label: _("Automatique (profil)") }, ...Object.entries(LANG_NAMES).map(([value, label]) => ({ value, label }))] } } });
+  // traduit les titres de sections et les libellés d'options d'un schéma ha-form (écrits en français)
+  const locSchema = (sc) => (sc || []).map((x) => { const o = { ...x }; if (o.title) o.title = _(o.title); if (o.schema) o.schema = locSchema(o.schema);
+    if (o.selector && o.selector.select && o.name !== "language") o.selector = { ...o.selector, select: { ...o.selector.select, options: (o.selector.select.options || []).map((op) => (typeof op === "string" ? op : { ...op, label: _(op.label) })) } };
+    if (o.name === "language" && o.selector && o.selector.select) o.selector = { ...o.selector, select: { ...o.selector.select, options: o.selector.select.options.map((op) => (op.value ? op : { ...op, label: _("Automatique (profil)") })) } };
+    return o; });
+  const VERSION = "1.1.0";
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const num = (v) => { const n = parseFloat(v); return isNaN(n) ? null : n; };
-  const fr = (v, d = 0) => (v === null || v === undefined ? "—" : Number(v).toLocaleString("fr-FR", { maximumFractionDigits: d, minimumFractionDigits: d }));
+  const fr = (v, d = 0) => (v === null || v === undefined ? "—" : Number(v).toLocaleString(NUMLOC, { maximumFractionDigits: d, minimumFractionDigits: d }));
   const hex2rgb = (h) => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ""); if (!m) return undefined; const n = parseInt(m[1], 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
   const rgb2hex = (a) => (Array.isArray(a) ? "#" + a.map((v) => Number(v).toString(16).padStart(2, "0")).join("") : a);
-  const STATE = { parked: ["Garée", "mdi:parking"], driving: ["En route", "mdi:car-arrow-right"], charging: ["En charge", "mdi:ev-station"], ready: ["Prête", "mdi:car-key"], sleeping: ["En veille", "mdi:sleep"], offline: ["Hors ligne", "mdi:cloud-off-outline"] };
-  const TABS = [["overview", "mdi:car-info", "Aperçu"], ["charge", "mdi:ev-station", "Charge"], ["climate", "mdi:fan", "Climat"], ["body", "mdi:car-door", "Véhicule"], ["actions", "mdi:gesture-tap-button", "Actions"]];
+  const STATE = { parked: [_("Garée"), "mdi:parking"], driving: [_("En route"), "mdi:car-arrow-right"], charging: [_("En charge"), "mdi:ev-station"], ready: [_("Prête"), "mdi:car-key"], sleeping: [_("En veille"), "mdi:sleep"], offline: [_("Hors ligne"), "mdi:cloud-off-outline"] };
+  const TABS = [["overview", "mdi:car-info", _("Aperçu")], ["charge", "mdi:ev-station", _("Charge")], ["climate", "mdi:fan", _("Climat")], ["body", "mdi:car-door", _("Véhicule")], ["actions", "mdi:gesture-tap-button", _("Actions")]];
   const ago = (iso) => {
     const t = Date.parse(iso); if (isNaN(t)) return "";
     const m = Math.max(0, Math.round((Date.now() - t) / 60000));
-    return m < 1 ? "à l'instant" : m < 60 ? `il y a ${m} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `il y a ${Math.round(m / 1440)} j`;
+    return m < 1 ? _("à l'instant") : m < 60 ? _("il y a {n} min", { n: m }) : m < 1440 ? _("il y a {n} h", { n: Math.round(m / 60) }) : _("il y a {n} j", { n: Math.round(m / 1440) });
   };
 
   class HolmLeapmotorCard extends HTMLElement {
@@ -37,7 +193,7 @@
       if (!this.shadowRoot) { this.attachShadow({ mode: "open" }); this._build(); }
       if (first) this._resolveImage();
       // les compteurs qui changent toutes les quelques secondes (âge des données…) ne redessinent pas la carte
-      const key = this._ids().filter((e) => !/_(data_age|data_timestamp|last_seen)$/.test(e)).map((e) => { const s = h.states[e]; return s ? s.state : ""; }).join("|");
+      const key = setLang(h, this._c) + this._ids().filter((e) => !/_(data_age|data_timestamp|last_seen)$/.test(e)).map((e) => { const s = h.states[e]; return s ? s.state : ""; }).join("|");
       if (key !== this._key) {
         this._key = key;
         if (this._pending && this._pending.sig !== this._climSig()) this._pending = null;   // la voiture a répondu
@@ -131,12 +287,13 @@
     _render() {
       const root = this.shadowRoot && this.shadowRoot.getElementById("root");
       if (!root || !this._hass || !this._c) return;
+      setLang(this._hass, this._c);
       // pas de redessin pendant un appui : sinon le bouton disparaît sous le doigt et l'action est perdue
       if (this._hold) { this._dirty = true; return; }
       this._dirty = false;
       const p = this._p();
       if (!p || !this._s("sensor", "battery")) {
-        root.innerHTML = `<div class="miss"><ha-icon icon="mdi:car-electric-outline"></ha-icon><div>Aucune voiture Leapmotor Mate trouvée.<br><small>Activez « MQTT → Home Assistant » dans Leapmotor Mate, ou indiquez le préfixe des entités dans l'éditeur.</small></div></div>`;
+        root.innerHTML = `<div class="miss"><ha-icon icon="mdi:car-electric-outline"></ha-icon><div>${_("Aucune voiture Leapmotor Mate trouvée.")}<br><small>${_("Activez « MQTT → Home Assistant » dans Leapmotor Mate, ou indiquez le préfixe des entités dans l'éditeur.")}</small></div></div>`;
         return;
       }
       const c = this._c;
@@ -145,7 +302,7 @@
       if (!tabs.some(([k]) => k === this._tab)) this._tab = tabs.some(([k]) => k === c.default_tab) ? c.default_tab : "overview";
       const pane = { overview: () => this._overview(), charge: () => this._charge(), climate: () => this._climate(), body: () => this._body(), actions: () => this._actions() }[this._tab]();
       root.innerHTML = `${this._hero()}
-        <div class="tabs" style="grid-template-columns:repeat(${tabs.length},minmax(0,1fr))">${tabs.map(([k, i, l]) => `<button data-a="tab" data-t="${k}" class="${k === this._tab ? "on" : ""}"><ha-icon icon="${i}" class="${(k === "climate" && this._on("climate")) || (k === "charge" && this._on("charging")) ? "spin" + (k === "charge" ? " pulse" : "") : ""}"></ha-icon><span>${l}</span>${k === "body" && this._openCount() ? '<i class="dot"></i>' : ""}</button>`).join("")}</div>
+        <div class="tabs" style="grid-template-columns:repeat(${tabs.length},minmax(0,1fr))">${tabs.map(([k, i, l]) => `<button data-a="tab" data-t="${k}" class="${k === this._tab ? "on" : ""}"><ha-icon icon="${i}" class="${(k === "climate" && this._on("climate")) || (k === "charge" && this._on("charging")) ? "spin" + (k === "charge" ? " pulse" : "") : ""}"></ha-icon><span>${_(l)}</span>${k === "body" && this._openCount() ? '<i class="dot"></i>' : ""}</button>`).join("")}</div>
         <div class="pane">${pane}</div>${c.show_location ? this._footer() : ""}`;
       const slot = root.querySelector("#mapslot");
       if (slot) this._mountMap(slot);
@@ -181,18 +338,18 @@
       const remTxt = rem ? (rem >= 60 ? `${Math.floor(rem / 60)} h ${String(Math.round(rem % 60)).padStart(2, "0")}` : `${Math.round(rem)} min`) : null;
       const tile = (ic, label, value, cls = "", tab = "") => `<button class="tile ${cls}" ${tab ? `data-a="tab" data-t="${tab}"` : ""}><ha-icon icon="${ic}"></ha-icon><small>${label}</small><b>${value}</b></button>`;
       const mode = this._chargerMode(), ms = mode && this._hass.states[mode];
-      const modeLab = ms ? ({ heures_creuses: "Heures creuses", maintenant: "Maintenant", arret: "Arrêt" }[ms.state] || ms.state) : null;
+      const modeLab = ms ? (_({ heures_creuses: _("Heures creuses"), maintenant: _("Maintenant"), arret: _("Arrêt") }[ms.state] || ms.state)) : null;
       return `<div class="ov ${charging ? "charging" : ""}">
         <div class="ovtop"><div class="ring sm"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="${R}" class="rbg"/>
           <circle cx="50" cy="50" r="${R}" class="rfg" style="stroke:${col};stroke-dasharray:${((C * pct) / 100).toFixed(1)} ${C.toFixed(1)}"/></svg>
           <div class="rin"><div class="pct">${fr(bat, 0)}<small>%</small></div>${charging ? `<ha-icon class="bolt" icon="mdi:lightning-bolt"></ha-icon>` : ""}</div></div>
-          <div class="ovtxt"><div class="ovr"><b>${fr(rng)}</b> km d'autonomie</div>
-            <div class="ovs">${charging ? `En charge · <b>${fr(pw, 1)} kW</b>${remTxt ? ` · encore ${remTxt}` : ""}` : plug ? "Branchée" + (modeLab ? ` · borne en ${modeLab.toLowerCase()}` : "") : "Débranchée"}</div></div></div>
+          <div class="ovtxt"><div class="ovr">${_("{x} km d'autonomie", { x: `<b>${fr(rng)}</b>` })}</div>
+            <div class="ovs">${charging ? _("En charge · {p} kW", { p: `<b>${fr(pw, 1)}</b>` }) + (remTxt ? _(" · encore {t}", { t: remTxt }) : "") : plug ? _("Branchée") + (modeLab ? _(" · borne en {m}", { m: modeLab.toLowerCase() }) : "") : _("Débranchée")}</div></div></div>
         <div class="tiles">
-          ${tile(locked ? "mdi:lock" : "mdi:lock-open-variant", "Portes", locked ? "Verrouillées" : "Ouvertes", locked ? "" : "warn", "actions")}
-          ${tile(open ? "mdi:car-door" : "mdi:car-door-lock", "Ouvrants", open ? `${open} ouvert${open > 1 ? "s" : ""}` : "Fermés", open ? "bad" : "", "body")}
-          ${(() => { const cl = this._clim(); return cl.on ? tile(cl.icon, cl.label, cl.target ? `${fr(cl.target, 1)} °C` : "En marche", `on run ${cl.kind}`, "climate") : tile("mdi:thermometer", "Intérieur", `${fr(this._n("inside_temp"), 1)} °C`, "", "climate"); })()}
-          ${tile(lowTyre ? "mdi:car-tire-alert" : "mdi:tire", "Pneus", lowTyre ? "Pression basse" : "OK", lowTyre ? "bad" : "", "body")}
+          ${tile(locked ? "mdi:lock" : "mdi:lock-open-variant", _("Portes"), locked ? _("Verrouillées") : _("Ouvertes"), locked ? "" : "warn", "actions")}
+          ${tile(open ? "mdi:car-door" : "mdi:car-door-lock", _("Ouvrants"), open ? _(open > 1 ? _("{n} ouverts") : _("{n} ouvert"), { n: open }) : _("Fermés"), open ? "bad" : "", "body")}
+          ${(() => { const cl = this._clim(); return cl.on ? tile(cl.icon, cl.label, cl.target ? `${fr(cl.target, 1)} °C` : _("En marche"), `on run ${cl.kind}`, "climate") : tile("mdi:thermometer", _("Intérieur"), `${fr(this._n("inside_temp"), 1)} °C`, "", "climate"); })()}
+          ${tile(lowTyre ? "mdi:car-tire-alert" : "mdi:tire", _("Pneus"), lowTyre ? _("Pression basse") : "OK", lowTyre ? "bad" : "", "body")}
         </div>
         ${this._c.show_location ? '<div id="mapslot" class="mapslot"></div>' : ""}</div>`;
     }
@@ -208,12 +365,12 @@
         ${img ? `<div class="photo" style="background-image:url('${esc(img)}')"></div>` : `<div class="silh">${HolmLeapmotorCard.carSide()}</div>`}
         <div class="shade"></div>${charging ? '<div class="eflow"></div>' : ""}
         <div class="htop"><div><div class="name">${esc(c.name || "Leapmotor")}</div>
-          <div class="chips"><span class="chip ${charging ? "on" : ""}"><ha-icon icon="${ic}"></ha-icon>${esc(lab)}</span>
-          <button class="chip ${locked ? "" : "warn"}" data-a="more" data-id="${this._e("lock", "door_lock")}"><ha-icon icon="${locked ? "mdi:lock" : "mdi:lock-open-variant"}"></ha-icon>${locked ? "Verrouillée" : "Déverrouillée"}</button>
+          <div class="chips"><span class="chip ${charging ? "on" : ""}"><ha-icon icon="${ic}"></ha-icon>${esc(_(lab))}</span>
+          <button class="chip ${locked ? "" : "warn"}" data-a="more" data-id="${this._e("lock", "door_lock")}"><ha-icon icon="${locked ? "mdi:lock" : "mdi:lock-open-variant"}"></ha-icon>${locked ? _("Verrouillée") : _("Déverrouillée")}</button>
           ${(() => { const cl = this._clim(); return cl.on ? `<span class="chip run ${cl.kind}"><ha-icon class="spin" icon="${cl.icon}"></ha-icon>${esc(cl.label)}</span>` : ""; })()}
-          ${openAlert ? `<span class="chip bad"><ha-icon icon="mdi:car-door"></ha-icon>Ouvert</span>` : ""}
-          ${this._on("plug_connected") ? `<span class="chip"><ha-icon icon="mdi:power-plug"></ha-icon>Branchée</span>` : ""}</div></div>
-          <div class="fresh ${link === "fresh" ? "ok" : "old"}" title="Données ${esc(link || "")}">${esc(ago(seen))}</div></div>
+          ${openAlert ? `<span class="chip bad"><ha-icon icon="mdi:car-door"></ha-icon>${_("Ouvert")}</span>` : ""}
+          ${this._on("plug_connected") ? `<span class="chip"><ha-icon icon="mdi:power-plug"></ha-icon>${_("Branchée")}</span>` : ""}</div></div>
+          <div class="fresh ${link === "fresh" ? "ok" : "old"}" title="${_("Données {x}", { x: esc(link || "") })}">${esc(ago(seen))}</div></div>
       </div>`;
     }
 
@@ -233,12 +390,12 @@
           ${limV ? (() => { const a = (limV / 100) * 2 * Math.PI; return `<line x1="${60 + 45 * Math.cos(a)}" y1="${60 + 45 * Math.sin(a)}" x2="${60 + 59 * Math.cos(a)}" y2="${60 + 59 * Math.sin(a)}" class="rlim"/>`; })() : ""}</svg>
           <div class="rin"><div class="pct">${fr(bat, 0)}<small>%</small></div><div class="rng">${fr(rng)} km</div>${charging ? `<ha-icon class="bolt" icon="mdi:lightning-bolt"></ha-icon>` : ""}</div></div>
         <div class="cinfo">
-          <div class="ctitle">${charging ? "En charge" : plug ? "Branchée" : "Batterie"}</div>
-          ${charging ? `<div class="kv big"><b>${fr(pw, 1)}</b> kW${remTxt ? ` · encore <b>${remTxt}</b>` : ""}</div><div class="kv">${fr(cur, 0)} A · ${fr(volt, 0)} V</div>` :
-            `<div class="kv">Autonomie <b>${fr(rng)} km</b></div><div class="kv">Batterie <b>${fr(this._n("battery_temp"), 1)} °C</b></div>`}
-          ${limS ? `<div class="lim"><span>Limite de charge</span><input type="range" id="lim" min="50" max="100" step="5" value="${limV ?? 100}"><b id="limv">${fr(limV)} %</b></div>` : ""}
-          ${ms ? `<div class="borne"><span class="bl"><ha-icon icon="mdi:ev-station"></ha-icon>Borne</span>
-            ${[["heures_creuses", "HC"], ["maintenant", "Maintenant"], ["arret", "Arrêt"]].map(([o, l]) => `<button class="seg ${ms.state === o ? "on" : ""}" data-a="mode" data-o="${o}">${l}</button>`).join("")}
+          <div class="ctitle">${charging ? _("En charge") : plug ? _("Branchée") : _("Batterie")}</div>
+          ${charging ? `<div class="kv big"><b>${fr(pw, 1)}</b> kW${remTxt ? _(" · encore {t}", { t: `<b>${remTxt}</b>` }) : ""}</div><div class="kv">${fr(cur, 0)} A · ${fr(volt, 0)} V</div>` :
+            `<div class="kv">${_("Autonomie {x}", { x: `<b>${fr(rng)} km</b>` })}</div><div class="kv">${_("Batterie {x}", { x: `<b>${fr(this._n("battery_temp"), 1)} °C</b>` })}</div>`}
+          ${limS ? `<div class="lim"><span>${_("Limite de charge")}</span><input type="range" id="lim" min="50" max="100" step="5" value="${limV ?? 100}"><b id="limv">${fr(limV)} %</b></div>` : ""}
+          ${ms ? `<div class="borne"><span class="bl"><ha-icon icon="mdi:ev-station"></ha-icon>${_("Borne")}</span>
+            ${[["heures_creuses", _("HC")], ["maintenant", _("Maintenant")], ["arret", _("Arrêt")]].map(([o, l]) => `<button class="seg ${ms.state === o ? "on" : ""}" data-a="mode" data-o="${o}">${_(l)}</button>`).join("")}
             ${pilot && !["maintenant", "arret", "arrêt"].includes(String(pilot.state).toLowerCase()) ? `<button class="pst" data-a="more" data-id="${esc(pilot.entity_id)}">${esc(pilot.state)}</button>` : ""}</div>` : ""}
         </div></div>`;
     }
@@ -246,38 +403,38 @@
     // mode de climatisation en cours (Leapmotor Mate : auto, vent, heat, cool, defrost…)
     _clim() {
       const on = this._on("climate"), mode = String(this._v("climate_mode") || "").toLowerCase();
-      const M = { auto: ["Auto", "a_c_auto", "mdi:fan-auto", "auto"], vent: ["Ventilation", "quick_ventilation", "mdi:fan", "vent"], ventilation: ["Ventilation", "quick_ventilation", "mdi:fan", "vent"],
-        heat: ["Chauffage", "quick_heat", "mdi:fire", "heat"], heating: ["Chauffage", "quick_heat", "mdi:fire", "heat"], cool: ["Climatisation", "quick_cool", "mdi:snowflake", "cool"], cooling: ["Climatisation", "quick_cool", "mdi:snowflake", "cool"],
-        defrost: ["Dégivrage", "defrost", "mdi:car-defrost-front", "heat"] };
-      const m = M[mode] || [mode ? mode.charAt(0).toUpperCase() + mode.slice(1) : "Climatisation", "", "mdi:fan", "vent"];
-      return { on, label: m[0], key: m[1], icon: m[2], kind: m[3], fan: num(this._v("fan_level", "number")), target: this._n("ac_target") };
+      const M = { auto: [_("Auto"), "a_c_auto", "mdi:fan-auto", "auto"], vent: [_("Ventilation"), "quick_ventilation", "mdi:fan", "vent"], ventilation: [_("Ventilation"), "quick_ventilation", "mdi:fan", "vent"],
+        heat: [_("Chauffage"), "quick_heat", "mdi:fire", "heat"], heating: [_("Chauffage"), "quick_heat", "mdi:fire", "heat"], cool: [_("Climatisation"), "quick_cool", "mdi:snowflake", "cool"], cooling: [_("Climatisation"), "quick_cool", "mdi:snowflake", "cool"],
+        defrost: [_("Dégivrage"), "defrost", "mdi:car-defrost-front", "heat"] };
+      const m = M[mode] || [mode ? mode.charAt(0).toUpperCase() + mode.slice(1) : _("Climatisation"), "", "mdi:fan", "vent"];
+      return { on, label: _(m[0]), key: m[1], icon: m[2], kind: m[3], fan: num(this._v("fan_level", "number")), target: this._n("ac_target") };
     }
     _climate() {
       const cl = this._clim(), inT = this._n("inside_temp"), outT = this._n("outside_temp");
       const pend = this._pending && this._pending.until > Date.now() ? this._pending.key : null;
       // le bouton du mode en cours arrête la climatisation (comme dans Leapmotor Mate)
-      const b = (k, ic, l) => this._s("button", k) ? `<button class="act ${cl.on && cl.key === k ? `on run ${cl.kind}` : ""} ${pend === k ? "pend" : ""}" data-a="press" data-k="${cl.on && cl.key === k && this._s("button", "a_c_off") ? "a_c_off" : k}" data-pend="1" ${cl.on && cl.key === k ? 'title="Toucher pour arrêter"' : ""}><ha-icon icon="${ic}"></ha-icon><span>${l}</span><em>Confirmer ?</em><i class="sent">Envoyé…</i></button>` : "";
+      const b = (k, ic, l) => this._s("button", k) ? `<button class="act ${cl.on && cl.key === k ? `on run ${cl.kind}` : ""} ${pend === k ? "pend" : ""}" data-a="press" data-k="${cl.on && cl.key === k && this._s("button", "a_c_off") ? "a_c_off" : k}" data-pend="1" ${cl.on && cl.key === k ? `title="${_("Toucher pour arrêter")}"` : ""}><ha-icon icon="${ic}"></ha-icon><span>${l}</span><em>${_("Confirmer ?")}</em><i class="sent">${_("Envoyé…")}</i></button>` : "";
       const tog = (onK, offK, valK, ic, l) => {
         if (!this._s("button", onK)) return "";
         const v = this._n(valK), act = v && v > 0;
-        return `<button class="act ${act ? "on run heat" : ""} ${pend === onK || pend === offK ? "pend" : ""}" data-a="press" data-k="${act ? offK : onK}" data-pend="1"><ha-icon icon="${ic}"></ha-icon><span>${l}</span>${act ? `<i class="lv">${v}</i>` : ""}<i class="sent">Envoyé…</i></button>`;
+        return `<button class="act ${act ? "on run heat" : ""} ${pend === onK || pend === offK ? "pend" : ""}" data-a="press" data-k="${act ? offK : onK}" data-pend="1"><ha-icon icon="${ic}"></ha-icon><span>${l}</span>${act ? `<i class="lv">${v}</i>` : ""}<i class="sent">${_("Envoyé…")}</i></button>`;
       };
       const banner = cl.on ? `<div class="cban ${cl.kind}"><ha-icon class="spin" icon="${cl.kind === "heat" ? "mdi:fire" : cl.kind === "cool" ? "mdi:snowflake" : "mdi:fan"}"></ha-icon>
-          <div><b>${esc(cl.label)} en marche</b><small>${cl.fan ? `Ventilation ${cl.fan}` : ""}${cl.target ? `${cl.fan ? " · " : ""}consigne ${fr(cl.target, 1)} °C` : ""}</small></div>
-          ${this._s("button", "a_c_off") ? `<button class="cstop" data-a="press" data-k="a_c_off" data-pend="1">Arrêter</button>` : ""}<i class="flow"></i></div>` : "";
+          <div><b>${_("{x} en marche", { x: esc(cl.label) })}</b><small>${cl.fan ? _("Ventilation {n}", { n: cl.fan }) : ""}${cl.target ? `${cl.fan ? " · " : ""}${_("consigne {t}", { t: fr(cl.target, 1) + " °C" })}` : ""}</small></div>
+          ${this._s("button", "a_c_off") ? `<button class="cstop" data-a="press" data-k="a_c_off" data-pend="1">${_("Arrêter")}</button>` : ""}<i class="flow"></i></div>` : "";
       return `<div class="sec">
-        <div class="sh"><ha-icon icon="mdi:fan" class="${cl.on ? "spin" : ""}"></ha-icon>Climatisation<span class="sp"></span>
+        <div class="sh"><ha-icon icon="mdi:fan" class="${cl.on ? "spin" : ""}"></ha-icon>${_("Climatisation")}<span class="sp"></span>
           <span class="tmp"><ha-icon icon="mdi:car-seat"></ha-icon>${fr(inT, 1)}°</span><span class="tmp"><ha-icon icon="mdi:weather-partly-cloudy"></ha-icon>${fr(outT, 1)}°</span>
           ${cl.target ? `<span class="tmp tg ${cl.on ? "on" : ""}"><ha-icon icon="mdi:thermostat"></ha-icon>${fr(cl.target, 1)}°</span>` : ""}</div>
         ${banner}
-        <div class="grid">${b("a_c_auto", "mdi:fan-auto", "Auto")}${b("quick_heat", "mdi:fire", "Chauffe rapide")}${b("quick_cool", "mdi:snowflake", "Clim rapide")}
-          ${b("defrost", "mdi:car-defrost-front", "Dégivrage")}${b("quick_ventilation", "mdi:fan", "Ventilation")}${b("a_c_off", "mdi:power", "Arrêt")}
-          ${tog("driver_seat_heat_on", "driver_seat_heat_off", "seat_heating_driver", "mdi:car-seat-heater", "Siège conducteur")}
-          ${tog("passenger_seat_heat_on", "passenger_seat_heat_off", "seat_heating_passenger", "mdi:car-seat-heater", "Siège passager")}
-          ${tog("steering_heat_on", "steering_heat_off", "steering_wheel_heat", "mdi:steering", "Volant")}
-          ${tog("mirror_heat_on", "mirror_heat_off", "mirror_heating_left", "mdi:mirror", "Rétroviseurs")}</div>
+        <div class="grid">${b("a_c_auto", "mdi:fan-auto", _("Auto"))}${b("quick_heat", "mdi:fire", _("Chauffe rapide"))}${b("quick_cool", "mdi:snowflake", _("Clim rapide"))}
+          ${b("defrost", "mdi:car-defrost-front", _("Dégivrage"))}${b("quick_ventilation", "mdi:fan", _("Ventilation"))}${b("a_c_off", "mdi:power", _("Arrêt"))}
+          ${tog("driver_seat_heat_on", "driver_seat_heat_off", "seat_heating_driver", "mdi:car-seat-heater", _("Siège conducteur"))}
+          ${tog("passenger_seat_heat_on", "passenger_seat_heat_off", "seat_heating_passenger", "mdi:car-seat-heater", _("Siège passager"))}
+          ${tog("steering_heat_on", "steering_heat_off", "steering_wheel_heat", "mdi:steering", _("Volant"))}
+          ${tog("mirror_heat_on", "mirror_heat_off", "mirror_heating_left", "mdi:mirror", _("Rétroviseurs"))}</div>
         ${this._fanRow(cl)}
-        <div class="note">La voiture confirme les commandes en une minute environ.</div></div>`;
+        <div class="note">${_("La voiture confirme les commandes en une minute environ.")}</div></div>`;
     }
 
     // vitesse de ventilation (number.*_fan_level) + consigne en lecture seule (Leapmotor Mate ne l'expose pas en réglage)
@@ -287,10 +444,10 @@
       let cur = num(st && st.state);
       if (this._fanSet) { if (this._fanSet.until < Date.now() || this._fanSet.v === cur) this._fanSet = null; else cur = this._fanSet.v; }
       const mn = Number(st?.attributes?.min ?? 1), mx = Number(st?.attributes?.max ?? 7), segs = [];
-      for (let i = mn; i <= mx; i++) segs.push(`<button class="fs ${cur !== null && i <= cur ? "sel" : ""}" data-a="fan" data-v="${i}" style="--h:${30 + (70 * (i - mn)) / Math.max(1, mx - mn)}%" title="Ventilation ${i}"><i></i></button>`);
+      for (let i = mn; i <= mx; i++) segs.push(`<button class="fs ${cur !== null && i <= cur ? "sel" : ""}" data-a="fan" data-v="${i}" style="--h:${30 + (70 * (i - mn)) / Math.max(1, mx - mn)}%" title="${_("Ventilation {n}", { n: i })}"><i></i></button>`);
       return `<div class="fanbox">
-        ${st ? `<div class="fan"><ha-icon icon="mdi:fan" class="${cl.on ? "spin" : ""}"></ha-icon><span>Ventilation</span><div class="fsegs">${segs.join("")}</div><b>${cur ?? "—"}</b></div>` : ""}
-        ${cl.target ? `<div class="cons"><ha-icon icon="mdi:thermostat"></ha-icon><span>Consigne</span><b>${fr(cl.target, 1)} °C</b><small>réglable dans Leapmotor Mate</small></div>` : ""}
+        ${st ? `<div class="fan"><ha-icon icon="mdi:fan" class="${cl.on ? "spin" : ""}"></ha-icon><span>${_("Ventilation")}</span><div class="fsegs">${segs.join("")}</div><b>${cur ?? "—"}</b></div>` : ""}
+        ${cl.target ? `<div class="cons"><ha-icon icon="mdi:thermostat"></ha-icon><span>${_("Consigne")}</span><b>${fr(cl.target, 1)} °C</b><small>${_("réglable dans Leapmotor Mate")}</small></div>` : ""}
       </div>`;
     }
 
@@ -299,36 +456,36 @@
       const tyre = (k) => { const v = this._n("tyre_" + k); return { v, low: v !== null && v < (this._c.tyre_min ?? 2.1) }; };
       const t = { fl: tyre("fl"), fr: tyre("fr"), rl: tyre("rl"), rr: tyre("rr") };
       const sun = this._n("sunshade_position");
-      const parts = [["door_front_left", "Porte avant gauche"], ["door_front_right", "Porte avant droite"], ["door_rear_left", "Porte arrière gauche"], ["door_rear_right", "Porte arrière droite"],
-        ["window_front_left", "Vitre avant gauche"], ["window_front_right", "Vitre avant droite"], ["window_rear_left", "Vitre arrière gauche"], ["window_rear_right", "Vitre arrière droite"], ["trunk", "Coffre"]];
+      const parts = [["door_front_left", _("Porte avant gauche")], ["door_front_right", _("Porte avant droite")], ["door_rear_left", _("Porte arrière gauche")], ["door_rear_right", _("Porte arrière droite")],
+        ["window_front_left", _("Vitre avant gauche")], ["window_front_right", _("Vitre avant droite")], ["window_rear_left", _("Vitre arrière gauche")], ["window_rear_right", _("Vitre arrière droite")], ["trunk", _("Coffre")]];
       const open = parts.filter(([k]) => o(k)).map(([, l]) => l);
       const tl = (k, x, y, anchor) => `<text x="${x}" y="${y}" text-anchor="${anchor}" class="ty ${t[k].low ? "low" : ""}">${t[k].v === null ? "—" : fr(t[k].v, 2)}</text>`;
       return `<div class="sec body">
-        <div class="sh"><ha-icon icon="mdi:car-door"></ha-icon>Ouvrants et pneus<span class="sp"></span>${open.length ? `<span class="alert">${open.length} ouvert${open.length > 1 ? "s" : ""}</span>` : `<span class="okk">Tout est fermé</span>`}</div>
+        <div class="sh"><ha-icon icon="mdi:car-door"></ha-icon>${_("Ouvrants et pneus")}<span class="sp"></span>${open.length ? `<span class="alert">${_(open.length > 1 ? _("{n} ouverts") : _("{n} ouvert"), { n: open.length })}</span>` : `<span class="okk">${_("Tout est fermé")}</span>`}</div>
         <div class="bwrap"><svg viewBox="0 0 260 150" class="top">
           ${HolmLeapmotorCard.carTop({ fl: o("door_front_left"), fr: o("door_front_right"), rl: o("door_rear_left"), rr: o("door_rear_right"),
             wfl: o("window_front_left"), wfr: o("window_front_right"), wrl: o("window_rear_left"), wrr: o("window_rear_right"), trunk: o("trunk"), sun: o("sunshade") })}
           ${tl("fl", 62, 14, "middle")}${tl("rl", 196, 14, "middle")}${tl("fr", 62, 146, "middle")}${tl("rr", 196, 146, "middle")}
         </svg>
         <div class="blist">${open.length ? open.map((l) => `<div class="bo"><ha-icon icon="mdi:alert-circle"></ha-icon>${l}</div>`).join("") : ""}
-          ${sun !== null ? `<div class="bi"><ha-icon icon="mdi:blinds-horizontal"></ha-icon>Rideau de toit <b>${o("sunshade") ? `ouvert ${fr(sun)} %` : "fermé"}</b></div>` : ""}
-          <div class="bi"><ha-icon icon="mdi:car-tire-alert"></ha-icon>Pneus <b>${["fl", "fr", "rl", "rr"].some((k) => t[k].low) ? "pression basse" : "OK"}</b> <small>(bar)</small></div>
-          ${this._v("gear") ? `<div class="bi"><ha-icon icon="mdi:car-shift-pattern"></ha-icon>Rapport <b>${esc(this._v("gear"))}</b></div>` : ""}</div></div></div>`;
+          ${sun !== null ? `<div class="bi"><ha-icon icon="mdi:blinds-horizontal"></ha-icon>${_("Rideau de toit")} <b>${o("sunshade") ? _("ouvert {p} %", { p: fr(sun) }) : _("fermé")}</b></div>` : ""}
+          <div class="bi"><ha-icon icon="mdi:car-tire-alert"></ha-icon>${_("Pneus")} <b>${["fl", "fr", "rl", "rr"].some((k) => t[k].low) ? _("pression basse") : "OK"}</b> <small>(bar)</small></div>
+          ${this._v("gear") ? `<div class="bi"><ha-icon icon="mdi:car-shift-pattern"></ha-icon>${_("Rapport")} <b>${esc(this._v("gear"))}</b></div>` : ""}</div></div></div>`;
     }
 
     _actions() {
       const lockSt = this._s("lock", "door_lock"), locked = lockSt && lockSt.state === "locked";
-      const b = (k, ic, l, conf) => this._s("button", k) ? `<button class="act" data-a="press" data-k="${k}" ${conf ? 'data-confirm="1"' : ""}><ha-icon icon="${ic}"></ha-icon><span>${l}</span><em>Confirmer ?</em></button>` : "";
+      const b = (k, ic, l, conf) => this._s("button", k) ? `<button class="act" data-a="press" data-k="${k}" ${conf ? 'data-confirm="1"' : ""}><ha-icon icon="${ic}"></ha-icon><span>${l}</span><em>${_("Confirmer ?")}</em></button>` : "";
       return `<div class="sec">
-        <div class="sh"><ha-icon icon="mdi:gesture-tap-button"></ha-icon>Actions</div>
+        <div class="sh"><ha-icon icon="mdi:gesture-tap-button"></ha-icon>${_("Actions")}</div>
         <div class="grid">
-          ${lockSt ? (locked ? `<button class="act" data-a="unlock" data-confirm="1"><ha-icon icon="mdi:lock-open-variant"></ha-icon><span>Déverrouiller</span><em>Confirmer ?</em></button>`
-            : `<button class="act on" data-a="lock"><ha-icon icon="mdi:lock"></ha-icon><span>Verrouiller</span></button>`) : ""}
-          ${b("open_trunk", "mdi:car-back", "Ouvrir le coffre", true)}${b("close_trunk", "mdi:car-back", "Fermer le coffre")}
-          ${b("open_windows", "mdi:car-door", "Ouvrir les vitres", true)}${b("close_windows", "mdi:car-door-lock", "Fermer les vitres")}
-          ${b("open_sunshade", "mdi:blinds-horizontal", "Ouvrir le rideau")}${b("close_sunshade", "mdi:blinds-horizontal-closed", "Fermer le rideau")}
-          ${b("find_car", "mdi:car-search", "Klaxon / feux")}${b("preheat_battery", "mdi:battery-heart-variant", "Préchauffer la batterie")}
-          ${b("unlock_charge_cable", "mdi:ev-plug-type2", "Libérer le câble", true)}</div></div>`;
+          ${lockSt ? (locked ? `<button class="act" data-a="unlock" data-confirm="1"><ha-icon icon="mdi:lock-open-variant"></ha-icon><span>${_("Déverrouiller")}</span><em>${_("Confirmer ?")}</em></button>`
+            : `<button class="act on" data-a="lock"><ha-icon icon="mdi:lock"></ha-icon><span>${_("Verrouiller")}</span></button>`) : ""}
+          ${b("open_trunk", "mdi:car-back", _("Ouvrir le coffre"), true)}${b("close_trunk", "mdi:car-back", _("Fermer le coffre"))}
+          ${b("open_windows", "mdi:car-door", _("Ouvrir les vitres"), true)}${b("close_windows", "mdi:car-door-lock", _("Fermer les vitres"))}
+          ${b("open_sunshade", "mdi:blinds-horizontal", _("Ouvrir le rideau"))}${b("close_sunshade", "mdi:blinds-horizontal-closed", _("Fermer le rideau"))}
+          ${b("find_car", "mdi:car-search", _("Klaxon / feux"))}${b("preheat_battery", "mdi:battery-heart-variant", _("Préchauffer la batterie"))}
+          ${b("unlock_charge_cable", "mdi:ev-plug-type2", _("Libérer le câble"), true)}</div></div>`;
     }
 
     _footer() {
@@ -336,7 +493,7 @@
       let where = "—";
       if (tr) {
         const z = tr.state;
-        where = z === "home" ? "À la maison" : z === "not_home" ? "En déplacement" : (this._hass.states["zone." + z]?.attributes.friendly_name || z);
+        where = z === "home" ? _("À la maison") : z === "not_home" ? _("En déplacement") : (this._hass.states["zone." + z]?.attributes.friendly_name || z);
       }
       return `<div class="foot">
         ${tr ? `<button class="fi" data-a="more" data-id="${esc(tr.entity_id)}"><ha-icon icon="mdi:map-marker"></ha-icon>${esc(where)}</button>` : ""}
@@ -557,31 +714,35 @@
     set hass(h) { this._hass = h; this._update(); }
     _update() {
       if (!this._hass || !this._config) return;
+      if (setLang(this._hass, this._config) !== this._lang && this._form) { this._lang = LANG; this._form.remove(); this._form = null; }
+      this._lang = LANG;
       if (!this._form) {
         this._form = document.createElement("ha-form");
         this._form.schema = [
           { type: "grid", name: "", schema: [{ name: "name", selector: { text: {} } }, { name: "prefix", selector: { text: {} } }] },
-          { type: "expandable", title: "Photo", icon: "mdi:image", flatten: true, expanded: true, schema: [
+          { type: "expandable", title: _("Photo"), icon: "mdi:image", flatten: true, expanded: true, schema: [
             { name: "image_media", selector: { media: { accept: ["image/*"] } } },
             { name: "image", selector: { text: {} } },
           ] },
-          { type: "expandable", title: "Affichage", icon: "mdi:view-dashboard-outline", flatten: true, schema: [
+          { type: "expandable", title: _("Affichage"), icon: "mdi:view-dashboard-outline", flatten: true, schema: [
             { type: "grid", name: "", schema: [
               { name: "show_climate", selector: { boolean: {} } }, { name: "show_body", selector: { boolean: {} } },
               { name: "show_actions", selector: { boolean: {} } }, { name: "show_location", selector: { boolean: {} } },
               { name: "show_charger", selector: { boolean: {} } }, { name: "confirm", selector: { boolean: {} } },
             ] },
-            { name: "default_tab", selector: { select: { mode: "dropdown", options: [{ value: "overview", label: "Aperçu" }, { value: "charge", label: "Charge" }, { value: "climate", label: "Climat" }, { value: "body", label: "Véhicule" }, { value: "actions", label: "Actions" }] } } },
+            { name: "default_tab", selector: { select: { mode: "dropdown", options: [{ value: "overview", label: _("Aperçu") }, { value: "charge", label: _("Charge") }, { value: "climate", label: _("Climat") }, { value: "body", label: _("Véhicule") }, { value: "actions", label: _("Actions") }] } } },
             { name: "map_zoom", selector: { number: { min: 8, max: 19, step: 1, mode: "box" } } },
             { name: "charger_mode", selector: { entity: { domain: "select" } } },
             { type: "grid", name: "", schema: [{ name: "c_accent", selector: { color_rgb: {} } }, { name: "tyre_min", selector: { number: { min: 1, max: 4, step: 0.05, mode: "box", unit_of_measurement: "bar" } } }] },
           ] },
+          langField(),
         ];
-        const L = { name: "Nom affiché", prefix: "Préfixe des entités (automatique si vide)", image_media: "Photo (médiathèque : vous pouvez y téléverser une image)",
-          image: "… ou adresse d'une image (ex. /local/voiture.jpg)", show_climate: "Climatisation", show_body: "Ouvrants et pneus", show_actions: "Actions",
-          show_location: "Position, mini-carte et kilométrage", show_charger: "Commande de la borne (HOLM Lektrico)", confirm: "Confirmer les actions sensibles",
-          charger_mode: "Sélecteur de mode de la borne (automatique si vide)", default_tab: "Onglet affiché à l'ouverture", map_zoom: "Zoom de la mini-carte", c_accent: "Couleur d'accent", tyre_min: "Alerte pression des pneus en dessous de" };
-        this._form.computeLabel = (s) => L[s.name] || s.name;
+        this._form.schema = locSchema(this._form.schema);
+        const L = { language: _("Langue"), name: _("Nom affiché"), prefix: _("Préfixe des entités (automatique si vide)"), image_media: _("Photo (médiathèque : vous pouvez y téléverser une image)"),
+          image: _("… ou adresse d'une image (ex. /local/voiture.jpg)"), show_climate: _("Climatisation"), show_body: _("Ouvrants et pneus"), show_actions: _("Actions"),
+          show_location: _("Position, mini-carte et kilométrage"), show_charger: _("Commande de la borne (HOLM Lektrico)"), confirm: _("Confirmer les actions sensibles"),
+          charger_mode: _("Sélecteur de mode de la borne (automatique si vide)"), default_tab: _("Onglet affiché à l'ouverture"), map_zoom: _("Zoom de la mini-carte"), c_accent: _("Couleur d'accent"), tyre_min: _("Alerte pression des pneus en dessous de") };
+        this._form.computeLabel = (s) => (L[s.name] ? _(L[s.name]) : s.name);
         this._form.addEventListener("value-changed", (ev) => {
           const v = { ...ev.detail.value }, out = { ...this._config };
           for (const [k, val] of Object.entries(v)) {
@@ -596,7 +757,7 @@
         this.appendChild(this._form);
       }
       const c = this._config;
-      const d = { show_climate: true, show_body: true, show_actions: true, show_location: true, show_charger: true, confirm: true, ...c, c_accent: hex2rgb(c.accent || "#2ec4b6") };
+      const d = { language: "", show_climate: true, show_body: true, show_actions: true, show_location: true, show_charger: true, confirm: true, ...c, c_accent: hex2rgb(c.accent || "#2ec4b6") };
       delete d.accent;
       this._form.hass = this._hass;
       this._form.data = d;
@@ -607,6 +768,7 @@
   if (!customElements.get("holm-leapmotor-card-editor")) customElements.define("holm-leapmotor-card-editor", HolmLeapmotorCardEditor);
   window.customCards = window.customCards || [];
   if (!window.customCards.some((c) => c.type === "holm-leapmotor-card"))
-    window.customCards.push({ type: "holm-leapmotor-card", name: "HOLM Leapmotor", description: "Votre Leapmotor via Leapmotor Mate : batterie, charge, climatisation, ouvrants, pneus, actions et position, avec votre photo.", preview: true });
+    setLang(document.querySelector("home-assistant")?.hass);
+    window.customCards.push({ type: "holm-leapmotor-card", name: _("HOLM Leapmotor"), description: _("Votre Leapmotor via Leapmotor Mate : batterie, charge, climatisation, ouvrants, pneus, actions et position, avec votre photo."), preview: true });
   console.info(`%c HOLM-LEAPMOTOR %c ${VERSION} `, "background:#2ec4b6;color:#062;border-radius:3px 0 0 3px", "background:#123;color:#fff;border-radius:0 3px 3px 0");
 })();

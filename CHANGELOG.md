@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.0
+- **8 langues** : français, anglais, allemand, espagnol, italien, néerlandais, portugais et polonais, pour la carte et son éditeur visuel. Elle suit la langue du profil Home Assistant (anglais si la langue n'est pas traduite) ; nouvelle option `language`, aussi réglable dans l'éditeur.
+- README en anglais (`README.en.md`).
+
 ## 1.0.0
 Première version publique.
 
